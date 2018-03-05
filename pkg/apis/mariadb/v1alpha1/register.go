@@ -14,7 +14,7 @@ const (
 )
 
 var (
-	SchemeBuilder = runtime.SchemeBuilder(addKnownTypes)
+	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
 
 	SchemeGroupVersion    = schema.GroupVersion{Group: groupName, Version: version}
