@@ -51,9 +51,9 @@ func (f *genericInformer) Lister() cache.GenericLister {
 // TODO extend this to unknown resources with a client pool
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
-	// Group=mariadb, Version=v1alpha1
+	// Group=components.dsg.dk, Version=v1alpha1
 	case v1alpha1.SchemeGroupVersion.WithResource("mariadbclusters"):
-		return &genericInformer{resource: resource.GroupResource(), informer: f.Mariadb().V1alpha1().MariaDBClusters().Informer()}, nil
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Components().V1alpha1().MariaDBClusters().Informer()}, nil
 
 	}
 

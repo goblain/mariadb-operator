@@ -60,13 +60,13 @@ func NewFilteredMariaDBClusterInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.MariadbV1alpha1().MariaDBClusters(namespace).List(options)
+				return client.ComponentsV1alpha1().MariaDBClusters(namespace).List(options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.MariadbV1alpha1().MariaDBClusters(namespace).Watch(options)
+				return client.ComponentsV1alpha1().MariaDBClusters(namespace).Watch(options)
 			},
 		},
 		&mariadb_v1alpha1.MariaDBCluster{},

@@ -19,8 +19,8 @@ package fake
 
 import (
 	clientset "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned"
-	mariadbv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1"
-	fakemariadbv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1/fake"
+	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1"
+	fakecomponentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -69,12 +69,12 @@ func (c *Clientset) Discovery() discovery.DiscoveryInterface {
 
 var _ clientset.Interface = &Clientset{}
 
-// MariadbV1alpha1 retrieves the MariadbV1alpha1Client
-func (c *Clientset) MariadbV1alpha1() mariadbv1alpha1.MariadbV1alpha1Interface {
-	return &fakemariadbv1alpha1.FakeMariadbV1alpha1{Fake: &c.Fake}
+// ComponentsV1alpha1 retrieves the ComponentsV1alpha1Client
+func (c *Clientset) ComponentsV1alpha1() componentsv1alpha1.ComponentsV1alpha1Interface {
+	return &fakecomponentsv1alpha1.FakeComponentsV1alpha1{Fake: &c.Fake}
 }
 
-// Mariadb retrieves the MariadbV1alpha1Client
-func (c *Clientset) Mariadb() mariadbv1alpha1.MariadbV1alpha1Interface {
-	return &fakemariadbv1alpha1.FakeMariadbV1alpha1{Fake: &c.Fake}
+// Components retrieves the ComponentsV1alpha1Client
+func (c *Clientset) Components() componentsv1alpha1.ComponentsV1alpha1Interface {
+	return &fakecomponentsv1alpha1.FakeComponentsV1alpha1{Fake: &c.Fake}
 }

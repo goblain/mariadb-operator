@@ -122,9 +122,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Mariadb() mariadb.Interface
+	Components() mariadb.Interface
 }
 
-func (f *sharedInformerFactory) Mariadb() mariadb.Interface {
+func (f *sharedInformerFactory) Components() mariadb.Interface {
 	return mariadb.New(f, f.namespace, f.tweakListOptions)
 }

@@ -53,7 +53,7 @@ type mariaDBClusters struct {
 }
 
 // newMariaDBClusters returns a MariaDBClusters
-func newMariaDBClusters(c *MariadbV1alpha1Client, namespace string) *mariaDBClusters {
+func newMariaDBClusters(c *ComponentsV1alpha1Client, namespace string) *mariaDBClusters {
 	return &mariaDBClusters{
 		client: c.RESTClient(),
 		ns:     namespace,

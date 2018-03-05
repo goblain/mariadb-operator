@@ -29,13 +29,13 @@ import (
 
 // FakeMariaDBClusters implements MariaDBClusterInterface
 type FakeMariaDBClusters struct {
-	Fake *FakeMariadbV1alpha1
+	Fake *FakeComponentsV1alpha1
 	ns   string
 }
 
-var mariadbclustersResource = schema.GroupVersionResource{Group: "mariadb", Version: "v1alpha1", Resource: "mariadbclusters"}
+var mariadbclustersResource = schema.GroupVersionResource{Group: "components.dsg.dk", Version: "v1alpha1", Resource: "mariadbclusters"}
 
-var mariadbclustersKind = schema.GroupVersionKind{Group: "mariadb", Version: "v1alpha1", Kind: "MariaDBCluster"}
+var mariadbclustersKind = schema.GroupVersionKind{Group: "components.dsg.dk", Version: "v1alpha1", Kind: "MariaDBCluster"}
 
 // Get takes name of the mariaDBCluster, and returns the corresponding mariaDBCluster object, and an error if there is any.
 func (c *FakeMariaDBClusters) Get(name string, options v1.GetOptions) (result *v1alpha1.MariaDBCluster, err error) {

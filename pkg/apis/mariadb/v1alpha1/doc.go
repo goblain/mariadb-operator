@@ -15,4 +15,5 @@ limitations under the License.
 */
 
 // +k8s:deepcopy-gen=package,register
+// +groupName=components.dsg.dk
 package v1alpha1

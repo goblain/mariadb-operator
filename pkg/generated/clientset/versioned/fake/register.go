@@ -18,7 +18,7 @@ limitations under the License.
 package fake
 
 import (
-	mariadbv1alpha1 "github.com/goblain/mariadb-operator/pkg/apis/mariadb/v1alpha1"
+	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/apis/mariadb/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,5 +49,5 @@ func init() {
 // After this, RawExtensions in Kubernetes types will serialize kube-aggregator types
 // correctly.
 func AddToScheme(scheme *runtime.Scheme) {
-	mariadbv1alpha1.AddToScheme(scheme)
+	componentsv1alpha1.AddToScheme(scheme)
 }

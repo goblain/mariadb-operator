@@ -13,6 +13,7 @@ type MariaDBClusterList struct {
 	Items           []MariaDBCluster `json:"items"`
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type MariaDBCluster struct {
