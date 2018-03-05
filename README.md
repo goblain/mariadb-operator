@@ -79,3 +79,7 @@ Galera metrics
 
 Readiness probe to check for status (ie. exclude new node and donor untill IST is done)
 
+### Future considerations
+
+Implement ProxySQL for a more intelligent routing to backends (avoiding direct use of service via kube-proxy)
+
