@@ -2,8 +2,30 @@ package v1alpha1
 
 import (
 	"k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+var ()
+
+// Expose all matching CRDs programaticaly to other elements of the system but keep them defined in the API it self
+// TODO: to be tested for crd collisions!!!
+
+func GetCRDs() []*apiextensionsv1beta1.CustomResourceDefinition {
+	mariadbcluster := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: "MariaDBCluster"},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   GroupName,
+			Version: Version,
+			Scope:   apiextensionsv1beta1.NamespaceScoped,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural: ResourcePlural,
+				Kind:   ResourceKind,
+			},
+		},
+	}
+	return []*apiextensionsv1beta1.CustomResourceDefinition{mariadbcluster}
+}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
@@ -66,7 +88,7 @@ func (mdb *MariaDBCluster) AsOwner() metav1.OwnerReference {
 	trueVar := true
 	return metav1.OwnerReference{
 		APIVersion: SchemeGroupVersion.String(),
-		Kind:       MariaDBClusterResourceKind,
+		Kind:       ResourceKind,
 		Name:       mdb.Name,
 		UID:        mdb.UID,
 		Controller: &trueVar,

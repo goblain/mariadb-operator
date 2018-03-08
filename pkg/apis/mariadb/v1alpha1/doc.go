@@ -17,3 +17,16 @@ limitations under the License.
 // +k8s:deepcopy-gen=package,register
 // +groupName=components.dsg.dk
 package v1alpha1
+
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
+const (
+	GroupName      string = "components.dsg.dk"
+	Version        string = "v1alpha1"
+	ResourceKind          = "MariaDBCluster"
+	ResourcePlural        = "mariadbclusters"
+)
+
+var (
+	SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: Version}
+)
