@@ -18,7 +18,7 @@ limitations under the License.
 package versioned
 
 import (
-	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1"
+	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/components/v1alpha1"
 	glog "github.com/golang/glog"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"

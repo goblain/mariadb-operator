@@ -6,8 +6,9 @@ import (
 	"time"
 
 	"github.com/Sirupsen/logrus"
-	v1alpha1Ctrl "github.com/goblain/mariadb-operator/pkg/operator/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -27,9 +28,10 @@ const (
 )
 
 type Operator struct {
-	Name         string
-	ClientConfig *rest.Config
-	Client       *kubernetes.Clientset
+	Name                string
+	ClientConfig        *rest.Config
+	Client              *kubernetes.Clientset
+	ApiExtensionsClient *apiextensionsclientset.Clientset
 }
 
 func NewOperator() *Operator {
@@ -52,6 +54,7 @@ func (op *Operator) Start() {
 	op.ClientConfig.Timeout = defaultKubeAPIRequestTimeout
 
 	op.Client = kubernetes.NewForConfigOrDie(op.ClientConfig)
+	op.ApiExtensionsClient = apiextensionsclientset.NewForConfigOrDie(op.ClientConfig)
 
 	// Take care of termination by signal
 	c := make(chan os.Signal, 1)
@@ -94,8 +97,12 @@ func (op *Operator) run(stop <-chan struct{}) {
 	// v1alpha1api :=
 	// Register all supported CRDs
 	op.EnsureSupportedCRDs()
+	// Get informerFactories
+	// kubeInformerFactory := informers.NewSharedInformerFactory(op.Client, time.Second*30)
+	// componentInformerFactory := componentinformers.NewSharedInformerFactory(op.Client, time.Second*30)
 	// Launch all supported controller versions
-	v1alpha1ctrl := v1alpha1Ctrl.Controller{ClientConfig: op.ClientConfig}
+	// v1alpha1ctrl := NewController(op, kubeInformerFactory)
+	v1alpha1ctrl := NewController(op)
 	go v1alpha1ctrl.Run()
 
 }

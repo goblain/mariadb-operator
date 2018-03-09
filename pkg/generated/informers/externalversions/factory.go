@@ -23,8 +23,8 @@ import (
 	time "time"
 
 	versioned "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned"
+	components "github.com/goblain/mariadb-operator/pkg/generated/informers/externalversions/components"
 	internalinterfaces "github.com/goblain/mariadb-operator/pkg/generated/informers/externalversions/internalinterfaces"
-	mariadb "github.com/goblain/mariadb-operator/pkg/generated/informers/externalversions/mariadb"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -122,9 +122,9 @@ type SharedInformerFactory interface {
 	ForResource(resource schema.GroupVersionResource) (GenericInformer, error)
 	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
 
-	Components() mariadb.Interface
+	Components() components.Interface
 }
 
-func (f *sharedInformerFactory) Components() mariadb.Interface {
-	return mariadb.New(f, f.namespace, f.tweakListOptions)
+func (f *sharedInformerFactory) Components() components.Interface {
+	return components.New(f, f.namespace, f.tweakListOptions)
 }

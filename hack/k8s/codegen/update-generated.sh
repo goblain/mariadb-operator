@@ -15,6 +15,6 @@ docker run --rm \
   "all" \
   "github.com/goblain/mariadb-operator/pkg/generated" \
   "github.com/goblain/mariadb-operator/pkg/apis" \
-  "mariadb:v1alpha1" \
+  "components:v1alpha1" \
   --go-header-file "./hack/k8s/codegen/boilerplate.go.txt" \
 $@

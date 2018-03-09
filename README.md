@@ -1,6 +1,8 @@
 # MariaDB Galera Cluster operator
 
-Concept for implementation of boilerplate largely based on CoreOS operators for etcd and prometheus which introduced operator pattern to wide audience.
+Concept for implementation of boilerplate largely based on:
+- https://github.com/coreos/etcd-operator
+- https://github.com/kubernetes/sample-controller
 
 ## Requirements:
 
@@ -75,9 +77,12 @@ IO
 MySQL Metrics
 Galera metrics
 
-### Other
+### Other notes
 
 Readiness probe to check for status (ie. exclude new node and donor untill IST is done)
+
+What should happen when MariaDBCluster object is deleted, can w have some kind of deletion protection ?
+
 
 ### Future considerations
 

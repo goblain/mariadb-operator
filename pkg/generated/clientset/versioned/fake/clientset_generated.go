@@ -19,8 +19,8 @@ package fake
 
 import (
 	clientset "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned"
-	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1"
-	fakecomponentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/mariadb/v1alpha1/fake"
+	componentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/components/v1alpha1"
+	fakecomponentsv1alpha1 "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned/typed/components/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
