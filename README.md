@@ -80,11 +80,10 @@ Galera metrics
 ### Other notes
 
 Readiness probe to check for status (ie. exclude new node and donor untill IST is done)
-
 What should happen when MariaDBCluster object is deleted, can w have some kind of deletion protection ?
-
+Should be marked as critical cluster pod as failure during bootstrap may be an issue / handle mid-bootstrap interruptions
 
 ### Future considerations
 
 Implement ProxySQL for a more intelligent routing to backends (avoiding direct use of service via kube-proxy)
-
+Use PodPreset to inject credentials automatically

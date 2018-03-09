@@ -1,14 +1,19 @@
 package operator
 
 import (
+	"flag"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
+
+	componentsclientset "github.com/goblain/mariadb-operator/pkg/generated/clientset/versioned"
+	componentsinformers "github.com/goblain/mariadb-operator/pkg/generated/informers/externalversions"
 
 	"github.com/Sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -31,6 +36,7 @@ type Operator struct {
 	Name                string
 	ClientConfig        *rest.Config
 	Client              *kubernetes.Clientset
+	ComponentsClient    *componentsclientset.Clientset
 	ApiExtensionsClient *apiextensionsclientset.Clientset
 }
 
@@ -43,6 +49,9 @@ func NewOperator() *Operator {
 
 func (op *Operator) Start() {
 	var err error
+	flag.Parse()
+	logrus.SetLevel(logrus.DebugLevel)
+	logrus.Debug("Debug logging enabled")
 	logrus.Info(op.Name)
 	op.ClientConfig, err = InClusterConfig()
 	if err != nil {
@@ -54,13 +63,14 @@ func (op *Operator) Start() {
 	op.ClientConfig.Timeout = defaultKubeAPIRequestTimeout
 
 	op.Client = kubernetes.NewForConfigOrDie(op.ClientConfig)
+	op.ComponentsClient = componentsclientset.NewForConfigOrDie(op.ClientConfig)
 	op.ApiExtensionsClient = apiextensionsclientset.NewForConfigOrDie(op.ClientConfig)
 
 	// Take care of termination by signal
 	c := make(chan os.Signal, 1)
-	signal.Notify(c)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGSTOP, syscall.SIGHUP, syscall.SIGQUIT, syscall.SIGINT)
 	go func() {
-		logrus.Infof("received signal: %v", <-c)
+		logrus.Infof("received signal: %v, exiting", <-c)
 		os.Exit(1)
 	}()
 
@@ -98,12 +108,15 @@ func (op *Operator) run(stop <-chan struct{}) {
 	// Register all supported CRDs
 	op.EnsureSupportedCRDs()
 	// Get informerFactories
-	// kubeInformerFactory := informers.NewSharedInformerFactory(op.Client, time.Second*30)
-	// componentInformerFactory := componentinformers.NewSharedInformerFactory(op.Client, time.Second*30)
+	kubeInformerFactory := informers.NewSharedInformerFactory(op.Client, time.Second*30)
+	componentInformerFactory := componentsinformers.NewSharedInformerFactory(op.ComponentsClient, time.Second*30)
 	// Launch all supported controller versions
 	// v1alpha1ctrl := NewController(op, kubeInformerFactory)
-	v1alpha1ctrl := NewController(op)
+	v1alpha1ctrl := NewController(op, kubeInformerFactory, componentInformerFactory)
 	go v1alpha1ctrl.Run()
+
+	go kubeInformerFactory.Start(stop)
+	go componentInformerFactory.Start(stop)
 
 }
 

@@ -12,8 +12,6 @@ var (
 var (
 	SchemeBuilder = runtime.NewSchemeBuilder(addKnownTypes)
 	AddToScheme   = SchemeBuilder.AddToScheme
-
-// 	MariaDBClusterCRDName = MariaDBClusterResourcePlural + "." + groupName
 )
 
 func addKnownTypes(s *runtime.Scheme) error {

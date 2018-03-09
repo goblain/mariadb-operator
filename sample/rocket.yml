@@ -1,0 +1,18 @@
+apiVersion: components.dsg.dk/v1alpha1
+kind: MariaDBCluster
+metadata:
+  name: rocket
+spec:
+  replicas: 3
+  serviceName: rocket
+  storages:
+    data:
+      initSize: 1Gi
+    snapshot:
+      initSize: 1Gi
+  serverConfig: |+
+    innodb_buffer_pool_size = 256M
+    max_connections = 100
+    innodb_file_per_table = ON
+    query_cache_size = 0
+  proxy: false

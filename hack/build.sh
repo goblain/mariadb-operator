@@ -6,7 +6,7 @@ set -o pipefail
 
 # remove nested vendor dirs
 
-GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o mariadb-operator -installsuffix cgo ./cmd/
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o mdbc -installsuffix cgo ./cmd
 
 
 ## function go_build {
