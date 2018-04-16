@@ -1,5 +1,8 @@
 package sidecar
 
+// TODO: ensure container has the latest version of config generated all the time
+//       so that if it restarts just the container it starts with recent info
+
 import (
 	"flag"
 	"net/http"

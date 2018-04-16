@@ -11,6 +11,7 @@ const (
 	PhaseBootstrapThird        = "BootstrapThird"
 	PhaseOperational           = "Operational"
 	PhaseRecovery              = "Recovery"
+	PhaseRecoverSeqNo          = "RecoverSeqNo"
 	PhaseRecoveryReleaseAll    = "RecoveryReleaseAll"
 	ConditionScaling           = "Scaling"
 )
@@ -32,6 +33,7 @@ type MariaDBClusterStatus struct {
 	TargetVersion                 string                    `json:"targetVersion"`
 	StatefulSetObservedGeneration int64                     `json:"statefulSetObservedGeneration"`
 	StatefulSetPodConditions      []PodCondition            `json:"statefulSetPodConditions"`
+	BootstrapFrom                 string                    `json:"bootstrapFrom,omitempty"`
 }
 
 // PodCondition publishes grstate.dat values with some additional meta

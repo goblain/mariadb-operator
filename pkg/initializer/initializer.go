@@ -1,9 +1,10 @@
 package initializer
 
 import (
-	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/signal"
 	"reflect"
 	"regexp"
@@ -21,10 +22,6 @@ import (
 
 const (
 	defaultKubeAPIRequestTimeout = 30 * time.Second
-	//	TODO: remove these temporary assocs with coded
-	name      = "mariadb-operator"
-	namespace = "kube-system"
-	id        = "123213123"
 )
 
 type Initializer struct {
@@ -50,14 +47,14 @@ func (i *Initializer) Run() {
 
 	var err error
 
-	i.name = "rocket"
-	i.namespace = "default"
+	i.name = os.Getenv("MARIADBCLUSTER_NAME")
+	i.namespace = os.Getenv("MARIADBCLUSTER_NAMESPACE")
 	if i.Hostname, err = os.Hostname(); err != nil {
 		panic(err.Error())
 	}
 
 	logrus.SetLevel(logrus.DebugLevel)
-	i.logger = logrus.WithField("namespace", namespace).WithField("name", name)
+	i.logger = logrus.WithField("namespace", i.namespace).WithField("name", i.name)
 	i.logger.Debug("Debug logging enabled")
 
 	i.clientConfig, err = InClusterConfig()
@@ -67,19 +64,68 @@ func (i *Initializer) Run() {
 	i.clientConfig.Timeout = defaultKubeAPIRequestTimeout
 	i.componentsClient = componentsclientset.NewForConfigOrDie(i.clientConfig)
 
-	if i.getMariaDBCluster().Status.Phase == components.PhaseRecovery {
+	mdbc := i.getMariaDBCluster()
+
+	writeConfig(mdbc)
+
+	hostname, _ := os.Hostname()
+
+	if mdbc.Status.Phase == components.PhaseRecovery {
+		// Hold on waiting for recovery stuff to happen
 		for true {
 			i.logger.Debug("Recovery phase detected, reporting my condition to MariaDBCluster object")
-			i.reportToMariaDBCluster()
+			i.reportToMariaDBCluster(mdbc)
 			time.Sleep(time.Second * 5)
-			if i.getMariaDBCluster().Status.Phase == components.PhaseRecoveryReleaseAll {
-				os.Exit(0)
+			mdbc = i.getMariaDBCluster()
+			if hostname == mdbc.Status.BootstrapFrom {
+				setSafeToBootstrap()
+				break
 			}
 		}
 	}
-	i.logger.Info("Finishing init in 5 sec")
-	// Be gracefull, don't rush ahead
-	time.Sleep(time.Second * 5)
+
+	writeConfig(mdbc)
+}
+
+func setSafeToBootstrap() {
+	state := []byte(getStateString())
+	re := regexp.MustCompile(`(safe_to_bootstrap:.*).(0)`)
+	newState := re.ReplaceAll(state, []byte(`$1.1`))
+	ioutil.WriteFile("/var/lib/mysql/grastate.dat", newState, 0440)
+}
+
+func writeConfig(mdbc *components.MariaDBCluster) {
+	var mdbConfig *components.MariaDBConfig
+	hostname, _ := os.Hostname()
+	if hostname == mdbc.Status.BootstrapFrom {
+		mdbConfig = &components.MariaDBConfig{
+			Name:                 mdbc.GetServerName(),
+			WSREPEndpoints:       nil,
+			WSREPProviderOptions: "pc.bootstrap=true",
+		}
+	} else {
+		mdbConfig = &components.MariaDBConfig{
+			Name:                 mdbc.GetServerName(),
+			WSREPEndpoints:       mdbc.GetWSREPEndpoints(),
+			WSREPProviderOptions: "",
+		}
+	}
+
+	operatorCnf, err := mdbConfig.Render()
+	if err != nil {
+		panic("Can't render template : " + err.Error())
+	}
+
+	err = ioutil.WriteFile("/etc/mysql/conf.d/operator.cnf", []byte(operatorCnf), 0444)
+	if err != nil {
+		panic(err.Error())
+	}
+	config := `[mysqld]` + "\n" + mdbc.Spec.ServerConfig
+	logrus.Debug(config)
+	err = ioutil.WriteFile("/etc/mysql/conf.d/user.cnf", []byte(config), 0444)
+	if err != nil {
+		panic(err.Error())
+	}
 }
 
 func (i *Initializer) getMariaDBCluster() *components.MariaDBCluster {
@@ -91,56 +137,19 @@ func (i *Initializer) getMariaDBCluster() *components.MariaDBCluster {
 	return mdbc
 }
 
-func (i *Initializer) reportToMariaDBCluster() {
+func (i *Initializer) reportToMariaDBCluster(mdbc *components.MariaDBCluster) {
 	current := i.getMariaDBCluster()
 	expected := current.DeepCopy()
-	// /var/lib/mysql/grastate.dat
-	// # GALERA saved state
-	// version: 2.1
-	// uuid:    a0044fb3-3cb6-11e8-9641-321932c64bd8
-	// seqno:   6
-	// safe_to_bootstrap: 0
-	stateString, err := ioutil.ReadFile("/var/lib/mysql/grastate.dat")
-	if err != nil {
-		panic("missing grastate.dat : " + err.Error())
-	}
 
-	var safeToBootstrap int
-	var seqno int64
-	var uuid, version string
-	var re *regexp.Regexp
-	var result []string
-
-	re = regexp.MustCompile(`version:\s*([0-9\.]*)`)
-	result = re.FindStringSubmatch(string(stateString))
-	if len(result) > 1 {
-		version = result[1]
-	} else {
-		panic("Version missing")
-	}
-
-	re = regexp.MustCompile(`uuid:\s*([A-Za-z0-9-]*)`)
-	result = re.FindStringSubmatch(string(stateString))
-	if len(result) > 1 {
-		uuid = result[1]
-	} else {
-		panic("UUID missing")
-	}
-
-	re = regexp.MustCompile(`seqno:\s*(\d+)`)
-	result = re.FindStringSubmatch(string(stateString))
-	if len(result) > 1 {
-		seqno, err = strconv.ParseInt(result[1], 10, 64)
-	} else {
-		panic("SeqNo missing : " + err.Error())
-	}
-
-	re = regexp.MustCompile(`safe_to_bootstrap:\s*(\d)`)
-	result = re.FindStringSubmatch(string(stateString))
-	if len(result) > 1 {
-		safeToBootstrap, err = strconv.Atoi(result[1])
-	} else {
-		logrus.Warn("safe_to_bootstrap missing : " + err.Error())
+	version, uuid, seqno, safeToBootstrap := parseGRAState()
+	if seqno <= 0 {
+		// got some stupid SeqNo, proceed into recovery
+		uuidRec, seqnoRec, err := recoverGRAStateUuidSeqNo()
+		if err == nil && uuid == uuidRec {
+			seqno = seqnoRec
+		} else {
+			panic("UUID missmatch")
+		}
 	}
 
 	podCondition := components.PodCondition{
@@ -166,11 +175,78 @@ func (i *Initializer) reportToMariaDBCluster() {
 	if !match {
 		expected.Status.StatefulSetPodConditions = append(expected.Status.StatefulSetPodConditions, podCondition)
 	}
-	js, _ := json.Marshal(current)
-	i.logger.Debug(string(js))
-	js, _ = json.Marshal(expected)
-	i.logger.Debug(string(js))
 	util.CheckAndPatchMariaDBCluster(current, expected, i.componentsClient.Components(), i.logger)
+}
+
+func recoverGRAStateUuidSeqNo() (string, int64, error) {
+	logrus.Debug("Recovering wsrep state")
+	cmd := exec.Command("su", "mysql", "-c", "/usr/sbin/mysqld --wsrep-recover")
+	out, _ := cmd.CombinedOutput()
+	re := regexp.MustCompile(`WSREP: Recovered position:\s*([0-9a-z-]*):(\d+)`)
+	result := re.FindStringSubmatch(string(out))
+	if len(result) > 1 {
+		seqno, _ := strconv.ParseInt(result[2], 10, 64)
+		return result[1], seqno, nil
+	}
+	return "", int64(0), fmt.Errorf("failed to recover")
+}
+
+func getStateString() string {
+	stateString, err := ioutil.ReadFile("/var/lib/mysql/grastate.dat")
+	if err != nil {
+		panic("missing grastate.dat : " + err.Error())
+	}
+	return string(stateString)
+}
+
+func parseGRAState() (string, string, int64, int) {
+	stateString := getStateString()
+	var safeToBootstrap int
+	var seqno int64
+	var uuid, version string
+	var re *regexp.Regexp
+	var result []string
+
+	logrus.Debug("stateString : " + stateString)
+
+	re = regexp.MustCompile(`version:\s*([0-9\.]*)`)
+	result = re.FindStringSubmatch(stateString)
+	if len(result) > 1 {
+		version = result[1]
+	} else {
+		panic("Version missing")
+	}
+
+	logrus.Debug("version " + version)
+
+	re = regexp.MustCompile(`uuid:\s*([A-Za-z0-9-]*)`)
+	result = re.FindStringSubmatch(stateString)
+	if len(result) > 1 {
+		uuid = result[1]
+	} else {
+		panic("UUID missing")
+	}
+	logrus.Debug("uuid " + uuid)
+
+	re = regexp.MustCompile(`seqno:\s*([-]?\d+)`)
+	result = re.FindStringSubmatch(stateString)
+	if len(result) > 1 {
+		seqno, _ = strconv.ParseInt(result[1], 10, 64)
+	} else {
+		panic("SeqNo missing")
+	}
+	logrus.Debug("version " + string(seqno))
+
+	re = regexp.MustCompile(`safe_to_bootstrap:\s*(\d)`)
+	result = re.FindStringSubmatch(string(stateString))
+	if len(result) > 1 {
+		safeToBootstrap, _ = strconv.Atoi(result[1])
+	} else {
+		logrus.Warn("safe_to_bootstrap missing")
+	}
+	logrus.Debug("safetoBootstrap " + string(safeToBootstrap))
+
+	return version, uuid, seqno, safeToBootstrap
 }
 
 func InClusterConfig() (*rest.Config, error) {

@@ -107,6 +107,24 @@ func (s *Storage) GetPersistentVolumeClaimSpecWithMode(mode v1.PersistentVolumeA
 	}
 }
 
+func (mdbc *MariaDBCluster) GetWSREPEndpoints() []string {
+	var wsrep []string
+
+	statefulSetName := mdbc.GetServerName()
+	serviceName := mdbc.GetServerServiceName()
+
+	if mdbc.Status.Phase == PhaseBootstrapFirst || mdbc.Status.Phase == PhaseBootstrapFirstRestart {
+		wsrep = []string{}
+	} else if mdbc.Status.Phase == PhaseBootstrapSecond {
+		wsrep = []string{statefulSetName + "-0." + serviceName}
+	} else if mdbc.Status.Phase == PhaseBootstrapThird {
+		wsrep = []string{statefulSetName + "-0." + serviceName, statefulSetName + "-1." + serviceName}
+	} else {
+		wsrep = []string{statefulSetName + "-0." + serviceName, statefulSetName + "-1." + serviceName, statefulSetName + "-2." + serviceName}
+	}
+	return wsrep
+}
+
 func (mdbc *MariaDBCluster) GetSnapshotPVC() *v1.PersistentVolumeClaim {
 	return &v1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{

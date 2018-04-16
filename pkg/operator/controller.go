@@ -174,7 +174,7 @@ func (c *Controller) reconcileCluster(cluster *componentsv1alpha1.MariaDBCluster
 	c.operator.reconcileServerServiceAccount(cluster)
 	c.operator.reconcileServerRole(cluster)
 	c.operator.reconcileServerRoleBinding(cluster)
-	c.operator.reconcileServerConfigMap(cluster)
+	// c.operator.reconcileServerConfigMap(cluster)
 	c.operator.reconcileStatefulSet(cluster)
 	c.operator.reconcileServerService(cluster)
 	c.operator.reconcileProxyService(cluster)
@@ -265,25 +265,35 @@ func (c *Controller) MariaDBClusterTransform(mdbc *componentsv1alpha1.MariaDBClu
 			mdbc.Status.Phase = componentsv1alpha1.PhaseRecovery
 		}
 
+	case componentsv1alpha1.PhaseRecoverSeqNo:
+		logger.Debug("Detected RecoverSeqNo Phase, checking transitions")
+		mdbc.Status.Phase = componentsv1alpha1.PhaseRecovery
+
 	case componentsv1alpha1.PhaseRecovery:
 		logger.Debug("Detected Recovery Phase, checking transitions")
-		if mdbc.Spec.Replicas > 1 {
-			// if all the pods reported their state
-			reported := int32(len(mdbc.Status.StatefulSetPodConditions))
-			if reported == mdbc.Spec.Replicas {
-				allAreEqual := true
-				for k, v := range mdbc.Status.StatefulSetPodConditions[1:] {
-					if v.GRAState.SeqNo != mdbc.Status.StatefulSetPodConditions[k].GRAState.SeqNo {
-						allAreEqual = false
-					}
-				}
-				if allAreEqual {
-					mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
-				}
-			}
-		} else {
-			mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
-		}
+		// if mdbc.Spec.Replicas > 1 {
+		// 	// if all the pods reported their state
+		// 	reported := int32(len(mdbc.Status.StatefulSetPodConditions))
+		// 	if reported == mdbc.Spec.Replicas {
+		// 		for _, v := range mdbc.Status.StatefulSetPodConditions {
+		// 			if v.GRAState.SeqNo <= int64(1) {
+		// 				mdbc.Status.Phase = componentsv1alpha1.PhaseRecoverSeqNo
+		// 				break
+		// 			}
+		// 		}
+		// 		// allAreEqual := true
+		// 		// for k, v := range mdbc.Status.StatefulSetPodConditions[1:] {
+		// 		// 		if v.GRAState.SeqNo != mdbc.Status.StatefulSetPodConditions[k].GRAState.SeqNo {
+		// 		// 			allAreEqual = false
+		// 		// 		}
+		// 		// 	}
+		// 		// 	if allAreEqual {
+		// 		// 		mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
+		// 		// 	}
+		// 	}
+		// } else {
+		// 	mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
+		// }
 
 	case componentsv1alpha1.PhaseRecoveryReleaseAll:
 		logger.Debug("Detected RecoveryReleaseAll Phase, checking transitions")

@@ -38,6 +38,8 @@ func (mdbc *MariaDBCluster) ServerConfigMapTransform(cmap *v1.ConfigMap) error {
 	if err != nil {
 		return err
 	}
-	cmap.Data = map[string]string{"operator.cnf": operatorCnf, "user.cnf": mdbc.Spec.ServerConfig}
+	cmap.Data = map[string]string{
+		"operator.cnf": operatorCnf,
+		"user.cnf":     mdbc.Spec.ServerConfig}
 	return nil
 }

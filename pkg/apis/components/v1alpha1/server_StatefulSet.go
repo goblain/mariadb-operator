@@ -10,6 +10,7 @@ import (
 func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) error {
 	pvars := GetPhaseVars(cluster)
 	ssetName := cluster.GetServerName()
+	serviceAccountName := cluster.GetServerName()
 	serviceName := cluster.GetServerServiceName()
 	labels := cluster.GetServerLabels()
 
@@ -29,7 +30,7 @@ func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) erro
 	sset.Spec.UpdateStrategy = apps.StatefulSetUpdateStrategy{Type: "RollingUpdate"}
 	sset.Spec.PodManagementPolicy = apps.ParallelPodManagement
 	sset.Spec.Template.ObjectMeta.Labels = labels
-	sset.Spec.Template.Spec.ServiceAccountName = cluster.GetServerName()
+	sset.Spec.Template.Spec.ServiceAccountName = serviceAccountName
 	// InitContainers
 	if len(sset.Spec.Template.Spec.InitContainers) < 1 {
 		sset.Spec.Template.Spec.InitContainers = append(sset.Spec.Template.Spec.InitContainers, v1.Container{})
@@ -39,7 +40,12 @@ func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) erro
 	sset.Spec.Template.Spec.InitContainers[0].ImagePullPolicy = v1.PullAlways
 	sset.Spec.Template.Spec.InitContainers[0].Command = []string{"/mdbc"}
 	sset.Spec.Template.Spec.InitContainers[0].Args = []string{"init"}
+	sset.Spec.Template.Spec.InitContainers[0].Env = []v1.EnvVar{
+		v1.EnvVar{Name: "MARIADBCLUSTER_NAME", Value: cluster.Name},
+		v1.EnvVar{Name: "MARIADBCLUSTER_NAMESPACE", Value: cluster.Namespace},
+	}
 	sset.Spec.Template.Spec.InitContainers[0].VolumeMounts = []v1.VolumeMount{
+		v1.VolumeMount{Name: "config", MountPath: "/etc/mysql/conf.d"},
 		v1.VolumeMount{Name: "data", MountPath: "/var/lib/mysql"},
 	}
 
@@ -47,17 +53,17 @@ func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) erro
 	if len(sset.Spec.Template.Spec.Containers) < 1 {
 		sset.Spec.Template.Spec.Containers = append(sset.Spec.Template.Spec.Containers, v1.Container{})
 	}
-	if cluster.Status.Phase == PhaseBootstrapFirst {
+	switch cluster.Status.Phase {
+	case PhaseBootstrapFirst:
 		sset.Spec.Template.Spec.Containers[0].Args = []string{"--wsrep-new-cluster"}
-		// } else if cluster.Status.Phase == PhaseRecovery {
-		// 	sset.Spec.Template.Spec.Containers[0].Command = []string{"/bin/sleep", "1d"}
-		// 	sset.Spec.Template.Spec.Containers[0].Args = nil
-	} else {
+	case PhaseRecoverSeqNo:
+		sset.Spec.Template.Spec.Containers[0].Command = []string{"mysqld", "--wsrep-recover"}
 		sset.Spec.Template.Spec.Containers[0].Args = nil
+	default:
 		sset.Spec.Template.Spec.Containers[0].Command = nil
+		sset.Spec.Template.Spec.Containers[0].Args = nil
 	}
 	sset.Spec.Template.Spec.Containers[0].Name = "mariadb"
-	// sset.Spec.Template.Spec.Containers[0].Image = "goblain/mdbc:dev"
 	sset.Spec.Template.Spec.Containers[0].Image = "mariadb:10.2"
 	// sset.Spec.Template.Spec.Containers[0].ImagePullPolicy = v1.PullIfNotPresent
 	sset.Spec.Template.Spec.Containers[0].ImagePullPolicy = v1.PullAlways
@@ -67,6 +73,7 @@ func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) erro
 	}
 	sset.Spec.Template.Spec.Containers[0].VolumeMounts = []v1.VolumeMount{
 		v1.VolumeMount{Name: "config", MountPath: "/etc/mysql/conf.d/operator.cnf", SubPath: "operator.cnf"},
+		v1.VolumeMount{Name: "config", MountPath: "/etc/mysql/conf.d/user.cnf", SubPath: "user.cnf"},
 		v1.VolumeMount{Name: "data", MountPath: "/var/lib/mysql"},
 	}
 
@@ -119,8 +126,8 @@ func (mdbc *MariaDBCluster) statefulSetVolumeClaimTemplatesTransform(current []v
 func (mdbc *MariaDBCluster) statefulSetVolumesTransform(current []v1.Volume) []v1.Volume {
 	if len(current) != 1 {
 		current = make([]v1.Volume, 1)
-		current[0].VolumeSource = v1.VolumeSource{ConfigMap: &v1.ConfigMapVolumeSource{LocalObjectReference: v1.LocalObjectReference{Name: mdbc.GetServerConfigMapName()}}}
 	}
+	current[0].VolumeSource = v1.VolumeSource{EmptyDir: &v1.EmptyDirVolumeSource{}}
 	current[0].Name = "config"
 	return current
 }
