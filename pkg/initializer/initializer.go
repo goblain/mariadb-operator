@@ -77,7 +77,12 @@ func (i *Initializer) Run() {
 			i.reportToMariaDBCluster(mdbc)
 			time.Sleep(time.Second * 5)
 			mdbc = i.getMariaDBCluster()
-			if hostname == mdbc.Status.BootstrapFrom {
+			if mdbc.Status.Stage == "PrimaryRecovered" {
+				// Primary recovered, release from the stasis for cluster rejoin
+				mdbc.Status.StatefulSetPodConditions = nil
+				break
+			} else if hostname == mdbc.Status.BootstrapFrom {
+				// Marked for primary recovery, release and bootstrap new cluster
 				setSafeToBootstrap()
 				break
 			}
@@ -89,8 +94,8 @@ func (i *Initializer) Run() {
 
 func setSafeToBootstrap() {
 	state := []byte(getStateString())
-	re := regexp.MustCompile(`(safe_to_bootstrap:.*).(0)`)
-	newState := re.ReplaceAll(state, []byte(`$1.1`))
+	re := regexp.MustCompile(`(safe_to_bootstrap:.*)(0)`)
+	newState := re.ReplaceAll(state, []byte(`$1 1`))
 	ioutil.WriteFile("/var/lib/mysql/grastate.dat", newState, 0440)
 }
 

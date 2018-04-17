@@ -10,6 +10,7 @@ import (
 	"github.com/goblain/mariadb-operator/pkg/util"
 	apps "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
 	appslisters "k8s.io/client-go/listers/apps/v1"
@@ -265,44 +266,59 @@ func (c *Controller) MariaDBClusterTransform(mdbc *componentsv1alpha1.MariaDBClu
 			mdbc.Status.Phase = componentsv1alpha1.PhaseRecovery
 		}
 
-	case componentsv1alpha1.PhaseRecoverSeqNo:
-		logger.Debug("Detected RecoverSeqNo Phase, checking transitions")
-		mdbc.Status.Phase = componentsv1alpha1.PhaseRecovery
-
 	case componentsv1alpha1.PhaseRecovery:
 		logger.Debug("Detected Recovery Phase, checking transitions")
-		// if mdbc.Spec.Replicas > 1 {
-		// 	// if all the pods reported their state
-		// 	reported := int32(len(mdbc.Status.StatefulSetPodConditions))
-		// 	if reported == mdbc.Spec.Replicas {
-		// 		for _, v := range mdbc.Status.StatefulSetPodConditions {
-		// 			if v.GRAState.SeqNo <= int64(1) {
-		// 				mdbc.Status.Phase = componentsv1alpha1.PhaseRecoverSeqNo
-		// 				break
-		// 			}
-		// 		}
-		// 		// allAreEqual := true
-		// 		// for k, v := range mdbc.Status.StatefulSetPodConditions[1:] {
-		// 		// 		if v.GRAState.SeqNo != mdbc.Status.StatefulSetPodConditions[k].GRAState.SeqNo {
-		// 		// 			allAreEqual = false
-		// 		// 		}
-		// 		// 	}
-		// 		// 	if allAreEqual {
-		// 		// 		mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
-		// 		// 	}
-		// 	}
-		// } else {
-		// 	mdbc.Status.Phase = componentsv1alpha1.PhaseRecoveryReleaseAll
-		// }
 
-	case componentsv1alpha1.PhaseRecoveryReleaseAll:
-		logger.Debug("Detected RecoveryReleaseAll Phase, checking transitions")
-		sset, _ := c.statefulsetLister.StatefulSets(mdbc.Namespace).Get(mdbc.GetServerName())
-		if isStatefulSetReady(sset) {
-			mdbc.Status.Phase = componentsv1alpha1.PhaseOperational
-			mdbc.Status.StatefulSetPodConditions = nil
+		if mdbc.Status.BootstrapFrom != "" {
+			// A bootstrap pod has been indicated
+			pod, err := c.operator.Client.Core().Pods(mdbc.Namespace).Get(mdbc.Status.BootstrapFrom, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			var ready bool
+			ready = true
+			for _, status := range pod.Status.ContainerStatuses {
+				if !status.Ready {
+					ready = false
+				}
+			}
+			if ready {
+				// Bootstrap pod is alive and ready, remove bootstrap indicator and start joining others
+				mdbc.Status.Stage = "PrimaryRecovered"
+			}
+			return nil
 		}
 
+		if mdbc.Status.Stage == "PrimaryRecovered" {
+			sset, err := c.statefulsetLister.StatefulSets(mdbc.Namespace).Get(mdbc.GetServerName())
+			if err != nil {
+				logger.Error(err.Error())
+			}
+			if isStatefulSetReady(sset) {
+				mdbc.Status.Phase = componentsv1alpha1.PhaseOperational
+				mdbc.Status.Stage = ""
+				mdbc.Status.StatefulSetPodConditions = nil
+				mdbc.Status.BootstrapFrom = ""
+			}
+		}
+
+		reported := int32(len(mdbc.Status.StatefulSetPodConditions))
+		if mdbc.Spec.Replicas > 1 {
+			if reported == mdbc.Spec.Replicas {
+				var maxSeqNoHostname string
+				var maxSeqNoValue int64
+				maxSeqNoValue = -1
+				for _, v := range mdbc.Status.StatefulSetPodConditions {
+					if v.GRAState.SeqNo > maxSeqNoValue {
+						maxSeqNoValue = v.GRAState.SeqNo
+						maxSeqNoHostname = v.Hostname
+					}
+				}
+				if maxSeqNoValue > 0 {
+					mdbc.Status.BootstrapFrom = maxSeqNoHostname
+				}
+			}
+		}
 	}
 	return nil
 }

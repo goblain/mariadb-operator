@@ -77,37 +77,46 @@ func (cluster *MariaDBCluster) StatefulSetTransform(sset *apps.StatefulSet) erro
 		v1.VolumeMount{Name: "data", MountPath: "/var/lib/mysql"},
 	}
 
-	// if pvars.UseLivenessProbe {
 	if sset.Spec.Template.Spec.Containers[0].LivenessProbe == nil {
 		sset.Spec.Template.Spec.Containers[0].LivenessProbe = &v1.Probe{}
 	}
 	sset.Spec.Template.Spec.Containers[0].LivenessProbe.Handler = v1.Handler{
 		Exec: &v1.ExecAction{Command: []string{"mysqladmin", "ping"}},
-		// HTTPGet: &v1.HTTPGetAction{Port: intstr.FromInt(8080), Path: "/alive", Scheme: "HTTP"},
 	}
 	sset.Spec.Template.Spec.Containers[0].LivenessProbe.InitialDelaySeconds = 30
 	sset.Spec.Template.Spec.Containers[0].LivenessProbe.PeriodSeconds = 5
 	sset.Spec.Template.Spec.Containers[0].LivenessProbe.TimeoutSeconds = 2
-	// } else {
-	// 	sset.Spec.Template.Spec.Containers[0].LivenessProbe = nil
-	// }
-	// if pvars.UseReadinessProbe {
 	if sset.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
 		sset.Spec.Template.Spec.Containers[0].ReadinessProbe = &v1.Probe{}
 	}
 	sset.Spec.Template.Spec.Containers[0].ReadinessProbe.Handler = v1.Handler{
-		// bash -c "mysql --skip-column-names -e \"select variable_value from information_schema.global_status where variable_name='wsrep_local_state_comment'\" -B | grep Synced"
 		Exec: &v1.ExecAction{Command: []string{"bash", "-c", "mysql --skip-column-names -e \"select variable_value from information_schema.global_status where variable_name='wsrep_local_state_comment'\" -B | grep -q Synced"}},
-		// HTTPGet: &v1.HTTPGetAction{Port: intstr.FromInt(8080), Path: "/ready", Scheme: "HTTP"},
 	}
 	sset.Spec.Template.Spec.Containers[0].ReadinessProbe.InitialDelaySeconds = 10
 	sset.Spec.Template.Spec.Containers[0].ReadinessProbe.PeriodSeconds = 2
 	sset.Spec.Template.Spec.Containers[0].ReadinessProbe.TimeoutSeconds = 2
-	// } else {
-	// 	sset.Spec.Template.Spec.Containers[0].ReadinessProbe = nil
-	// }
 	sset.Spec.Template.Spec.Volumes = cluster.statefulSetVolumesTransform(sset.Spec.Template.Spec.Volumes)
 	sset.Spec.VolumeClaimTemplates = cluster.statefulSetVolumeClaimTemplatesTransform(sset.Spec.VolumeClaimTemplates)
+
+	// Tool/Debug container
+	if len(sset.Spec.Template.Spec.Containers) < 2 {
+		sset.Spec.Template.Spec.Containers = append(sset.Spec.Template.Spec.Containers, v1.Container{})
+	}
+	sset.Spec.Template.Spec.Containers[1].Command = []string{"/bin/sleep", "1d"}
+	sset.Spec.Template.Spec.Containers[1].Name = "debug"
+	sset.Spec.Template.Spec.Containers[1].Image = "mariadb:10.2"
+	// sset.Spec.Template.Spec.Containers[1].ImagePullPolicy = v1.PullIfNotPresent
+	sset.Spec.Template.Spec.Containers[1].ImagePullPolicy = v1.PullAlways
+
+	sset.Spec.Template.Spec.Containers[1].VolumeMounts = []v1.VolumeMount{
+		v1.VolumeMount{Name: "config", MountPath: "/etc/mysql/conf.d/operator.cnf", SubPath: "operator.cnf"},
+		v1.VolumeMount{Name: "config", MountPath: "/etc/mysql/conf.d/user.cnf", SubPath: "user.cnf"},
+		v1.VolumeMount{Name: "data", MountPath: "/var/lib/mysql"},
+	}
+
+	sset.Spec.Template.Spec.Volumes = cluster.statefulSetVolumesTransform(sset.Spec.Template.Spec.Volumes)
+	sset.Spec.VolumeClaimTemplates = cluster.statefulSetVolumeClaimTemplatesTransform(sset.Spec.VolumeClaimTemplates)
+
 	return nil
 }
 
